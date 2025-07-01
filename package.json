@@ -1,0 +1,28 @@
+{
+  "name": "ticket-boy",
+  "version": "1.0.0",
+  "description": "Ticket Bot by Expectatives#1157",
+  "main": "index.js",
+  "author": "Expectatives#1157",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "chalk": "^4.1.0",
+    "discord.js": "^13.17.1",
+    "dotenv": "^10.0.0",
+    "fs": "^0.0.1-security",
+    "glob": "^7.2.0",
+    "node-fetch": "^3.3.2",
+    "sourcebin_js": "^0.0.3-ignore"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Expectatives/Ticket-bot.git"
+  },
+  "bugs": "https://github.com/Expectatives/Ticket-bot/issues",
+  "homepage": "https://github.com/Expectatives/Ticket-bot#readme"
+}
