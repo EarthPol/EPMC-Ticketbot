@@ -1,4 +1,3 @@
-const sourcebin = require('sourcebin_js');
 const fs   = require('fs');
 const path = require('path');
 
@@ -18,9 +17,11 @@ module.exports = {
             const numMatch = channel.name.match(/^close\-(\d+)$/);
             const ticketNumber = numMatch ? numMatch[1] : 'unknown';
             const member = interaction.guild.members.cache.get(channel.topic);
-
+			let transcriptPath;
+			
             // ─── dump transcript locally & DM to opener ───────────────────
             try {
+				
                 // grab last 100 msgs
                 const fetched = await channel.messages.fetch({limit: 100});
                 const lines = Array.from(fetched.values())
@@ -32,7 +33,7 @@ module.exports = {
                 fs.mkdirSync(histDir, {recursive: true});
 
                 // write text file
-                const transcriptPath = path.join(histDir, `ticket-${ticketNumber}.txt`);
+                transcriptPath = path.join(histDir, `ticket-${ticketNumber}.txt`);
                 fs.writeFileSync(transcriptPath, lines.join('\n'), 'utf8');
 
                 // DM it
@@ -68,31 +69,32 @@ module.exports = {
             let msg = await channel.send({ content: 'Saving transcript...' });
             channel.messages.fetch().then(async (messages) => {
                 const content = messages.reverse().map(m => `${new Date(m.createdAt).toLocaleString('en-US')} - ${m.author.tag}: ${m.attachments.size > 0 ? m.attachments.first().proxyURL : m.content}`).join('\n');
-
-                let transcript = await sourcebin.create([{ name: `${channel.name}`, content: content, languageId: 'text' }], {
-                    title: `Chat transcript: ${channel.name}`,
-                    description: ' ',
-                });
         
-                const row = new client.discord.MessageActionRow()
-                .addComponents(
-                    new client.discord.MessageButton()
-                    .setStyle("LINK")
-                    .setEmoji("📑")
-                    .setURL(`${transcript.url}`)
-                );
         
                 const embed = new client.discord.MessageEmbed()
                 .setTitle("Ticket Transcript")
                 .addFields(
                     { name: "Channel", value: `${interaction.channel.name}` },
-                    { name: "Ticket Owner", value: `<@!${member.id}>` },
-                    { name: "Direct Transcript", value: `[Direct Transcript](${transcript.url})` }
+                    { name: "Ticket Owner", value: `<@!${member.id}>` }
                 )
                 .setColor(client.config.embedColor)
                 .setFooter({ text: `${client.config.embedfooterText}`, iconURL: `${client.user.displayAvatarURL()}` });
-        
-                await transcriptsChannel.send({ embeds: [embed], components: [row] });
+				
+				const transcriptAttachment = {
+				  attachment: transcriptPath,           // full path on disk
+				  name: `ticket-${ticketNumber}.txt`    // the name it will have in Discord
+				};
+				
+				embed.addField(
+				  '📄 Transcript',
+				  `[Download here](attachment://${transcriptAttachment.name})`
+				);
+				
+				      
+                await transcriptsChannel.send({
+				  embeds: [embed],
+				  files: [transcriptAttachment]
+				});
             });
 
             await msg.edit({ content: `Transcript saved to <#${transcriptsChannel.id}>` });
