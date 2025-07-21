@@ -1,37 +1,59 @@
-module.exports = {
-    name: "send-panel",
-    usage: '/send-panel <channel>',
-    options: [
-        {
-            name: 'channel',
-            description: 'Channel to send ticket panel!',
-            type: 'CHANNEL',
-            channelTypes: ["GUILD_TEXT"],
-            required: true
-        }
-    ],
-    category: "Tickets",
-    description: "Send ticket panel to specific channel!",
-    userPerms: ["ADMINISTRATOR"],
-    ownerOnly: false,
-    run: async (client, interaction) => {
-        const channel = interaction.options.getChannel("channel");
+// slashCommands/send-panel.js
+const {
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    ChannelType
+} = require('discord.js');
 
-        const row = new client.discord.MessageActionRow()
-        .addComponents(
-            new client.discord.MessageButton()
-            .setStyle("SECONDARY")
-            .setEmoji("📩")
-            .setCustomId("create-ticket")
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('send-panel')
+        .setDescription('Send ticket panel to specific channel!')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addChannelOption(option =>
+            option
+                .setName('channel')
+                .setDescription('Text channel to post the ticket panel in')
+                .addChannelTypes(ChannelType.GuildText)
+                .setRequired(true)
+        ),
+
+    async execute(client, interaction) {
+        const channel = interaction.options.getChannel('channel');
+
+        const { MessageActionRow, MessageButton, MessageEmbed } = require('discord.js');
+        const row = new MessageActionRow().addComponents(
+            new MessageButton()
+                .setCustomId('general_ticket')
+                .setLabel('General Ticket')
+                .setStyle('SECONDARY'),
+            new MessageButton()
+                .setCustomId('report_player')
+                .setLabel('Report a Player')
+                .setStyle('SECONDARY'),
+            new MessageButton()
+                .setCustomId('bug_report')
+                .setLabel('Bug Reports')
+                .setStyle('SECONDARY'),
+            new MessageButton()
+                .setCustomId('report_staff')
+                .setLabel('Report Staff Abuse')
+                .setStyle('SECONDARY'),
         );
 
-        const embed = new client.discord.MessageEmbed()
-        .setTitle("Create ticket")
-        .setDescription("To create a ticket react with 📩")
-        .setColor(client.config.embedColor)
-        .setFooter({ text: `${client.config.embedfooterText}`, iconURL: `${client.user.displayAvatarURL()}` });
+        const embed = new MessageEmbed()
+            .setTitle('Create ticket')
+            .setDescription('Click one of the buttons below to open a ticket')
+            .setColor(client.config.embedColor)
+            .setFooter({
+                text: client.config.embedfooterText,
+                iconURL: client.user.displayAvatarURL()
+            });
 
-        interaction.reply({ content: `Ticket panel success send to ${channel}!`, ephemeral: true });
-        return channel.send({ embeds: [embed], components: [row] });
+        await channel.send({ embeds: [embed], components: [row] });
+        return interaction.reply({
+            content: `✅ Ticket panel sent to ${channel}`,
+            ephemeral: true
+        });
     }
-}
+};

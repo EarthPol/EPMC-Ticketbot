@@ -1,109 +1,90 @@
+// events/tickets/deleteTicket.js
 const fs   = require('fs');
 const path = require('path');
 
+const {
+    ActionRowBuilder,
+    ButtonBuilder,
+    EmbedBuilder,
+    PermissionFlagsBits,
+    ButtonStyle
+} = require('discord.js');
+
 module.exports = {
     name: 'interactionCreate',
-
-    /**
-     * @param {ButtonInteraction} interaction 
-     * @param {Client} client 
-     */
     async execute(interaction, client) {
         if (!interaction.isButton()) return;
 
-        if (interaction.customId === 'ticket-delete' && interaction.channel.name.includes('close')) {
+        // Handle the delete ticket button
+        if (interaction.customId === 'ticket-delete' && interaction.channel.name.startsWith('closed-')) {
             const channel = interaction.channel;
-            // extract the same number from the “close-<number>” name
-            const numMatch = channel.name.match(/^close\-(\d+)$/);
-            const ticketNumber = numMatch ? numMatch[1] : 'unknown';
-            const member = interaction.guild.members.cache.get(channel.topic);
-			let transcriptPath;
-			
-            // ─── dump transcript locally & DM to opener ───────────────────
-            try {
-				
-                // grab last 100 msgs
-                const fetched = await channel.messages.fetch({limit: 100});
-                const lines = Array.from(fetched.values())
-                    .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-                    .map(m => `[${new Date(m.createdTimestamp).toLocaleString()}] ${m.author.tag}: ${m.content}`);
+            const match = channel.name.match(/^closed-(\d+)$/);
+            const ticketNumber = match ? match[1] : 'unknown';
+            const memberId = channel.topic;
+            const member = interaction.guild.members.cache.get(memberId);
 
-                // ensure folder exists
-                const histDir = path.join(__dirname, '..', 'ticket-history');
-                fs.mkdirSync(histDir, {recursive: true});
+            // Disable delete button
+            const disabledDelete = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('ticket-delete')
+                    .setLabel('Delete Ticket')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('🗑️')
+                    .setDisabled(true)
+            );
+            await interaction.update({ components: [disabledDelete] });
 
-                // write text file
-                transcriptPath = path.join(histDir, `ticket-${ticketNumber}.txt`);
-                fs.writeFileSync(transcriptPath, lines.join('\n'), 'utf8');
+            // Acknowledge transcript saving
+            const confirmation = await channel.send('Saving transcript...');
 
-                // DM it
+            // Fetch messages up to delete click timestamp
+            const fetched = await channel.messages.fetch({ limit: 100 });
+            const filtered = fetched.filter(msg => msg.createdTimestamp < interaction.createdTimestamp);
+            const lines = Array.from(filtered.values())
+                .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+                .map(m => `[${new Date(m.createdTimestamp).toLocaleString()}] ${m.author.tag}: ${m.content}`);
+
+            // Save transcript
+            const histDir = path.join(__dirname, '..', 'ticket-history');
+            fs.mkdirSync(histDir, { recursive: true });
+            const transcriptPath = path.join(histDir, `ticket-${ticketNumber}.txt`);
+            fs.writeFileSync(transcriptPath, lines.join('\n'), 'utf8');
+
+            // DM transcript to opener
+            if (member) {
                 try {
-                    const opener = await client.users.fetch(member.user.id);
+                    const opener = await client.users.fetch(memberId);
                     await opener.send({
                         content: `Here’s your transcript for ticket #${ticketNumber}`,
                         files: [transcriptPath]
                     });
-                } catch (err) {
-                    console.error('Failed to DM transcript', err);
+                } catch (e) {
+                    console.error('Failed to DM transcript', e);
                 }
-            } catch (err) {
-                console.error('Failed to save local transcript', err);
             }
 
-
+            // Post to transcripts channel
             const transcriptsChannel = client.channels.cache.get(client.config.ticketsTranscripts);
+            if (transcriptsChannel) {
+                const embed = new EmbedBuilder()
+                    .setTitle('📄 Ticket Transcript')
+                    .addFields(
+                        { name: 'Channel',      value: channel.name, inline: true },
+                        { name: 'Ticket Owner', value: `<@${memberId}>`, inline: true },
+                        { name: 'Transcript',   value: `[Download](attachment://ticket-${ticketNumber}.txt)` }
+                    )
+                    .setColor(client.config.embedColor)
+                    .setFooter({ text: client.config.embedfooterText, iconURL: client.user.displayAvatarURL() });
 
-            const rowCloseFalse = new client.discord.MessageActionRow()
-            .addComponents(
-                new client.discord.MessageButton()
-                .setStyle("DANGER")
-                .setEmoji("🗑️")
-                .setDisabled(true)
-                .setCustomId("ticket-delete")
-            );
-            
-            interaction.message.edit({ components: [rowCloseFalse] });
-
-            interaction.deferUpdate();
-
-            let msg = await channel.send({ content: 'Saving transcript...' });
-            channel.messages.fetch().then(async (messages) => {
-                const content = messages.reverse().map(m => `${new Date(m.createdAt).toLocaleString('en-US')} - ${m.author.tag}: ${m.attachments.size > 0 ? m.attachments.first().proxyURL : m.content}`).join('\n');
-        
-        
-                const embed = new client.discord.MessageEmbed()
-                .setTitle("Ticket Transcript")
-                .addFields(
-                    { name: "Channel", value: `${interaction.channel.name}` },
-                    { name: "Ticket Owner", value: `<@!${member.id}>` }
-                )
-                .setColor(client.config.embedColor)
-                .setFooter({ text: `${client.config.embedfooterText}`, iconURL: `${client.user.displayAvatarURL()}` });
-				
-				const transcriptAttachment = {
-				  attachment: transcriptPath,           // full path on disk
-				  name: `ticket-${ticketNumber}.txt`    // the name it will have in Discord
-				};
-				
-				embed.addField(
-				  '📄 Transcript',
-				  `[Download here](attachment://${transcriptAttachment.name})`
-				);
-				
-				      
                 await transcriptsChannel.send({
-				  embeds: [embed],
-				  files: [transcriptAttachment]
-				});
-            });
+                    embeds: [embed],
+                    files: [{ attachment: transcriptPath, name: `ticket-${ticketNumber}.txt` }]
+                });
+            }
 
-            await msg.edit({ content: `Transcript saved to <#${transcriptsChannel.id}>` });
-
-            await channel.send({ content: 'Ticket will be deleted in 5 seconds!' });
-
-            setTimeout(async function () {
-                channel.delete();
-            }, 5000);
+            // Notify and delete
+            await confirmation.edit('Transcript saved. Deleting ticket in 5 seconds...');
+            setTimeout(() => channel.delete(), 5000);
         }
     }
-}
+};

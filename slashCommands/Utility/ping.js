@@ -1,23 +1,27 @@
-// Example of how to make a SlashCommand
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
-    name: "ping",
-    category: "Utility",
-    description: "Check the bot's ping!",
-    userPerms: ["SEND_MESSAGES"],
-    ownerOnly: false,
-    run: async (client, interaction) => {
-        const msg = await interaction.channel.send(`🏓 Pinging...`);
+    data: new SlashCommandBuilder()
+        .setName('ping')
+        .setDescription("Check the bot's ping!"),
 
-        const pingEmbed = new client.discord.MessageEmbed()
-        .setTitle(':signal_strength: Bot Ping')
-        .addField("Time", `${Math.floor(msg.createdAt - interaction.createdAt)}ms`, true)
-        .addField("API Ping", `${client.ws.ping}ms`, true)
-        .setColor(client.config.embedColor)
-        .setFooter({ text: `${client.config.embedfooterText}`, iconURL: `${client.user.displayAvatarURL()}` });
+    async run(client, interaction) {
+        // send a provisional reply to measure latency
+        const sent = await interaction.reply({ content: '🏓 Pinging…', fetchReply: true });
+        const time = sent.createdTimestamp - interaction.createdTimestamp;
 
-        await interaction.reply({ embeds: [pingEmbed] });
+        const embed = new EmbedBuilder()
+            .setTitle('📶 Bot Ping')
+            .addFields(
+                { name: 'Time',     value: `${time}ms`,           inline: true },
+                { name: 'API Ping', value: `${client.ws.ping}ms`, inline: true }
+            )
+            .setColor(client.config.embedColor)
+            .setFooter({
+                text: client.config.embedfooterText,
+                iconURL: client.user.displayAvatarURL()
+            });
 
-        msg.delete();
-    },
+        return interaction.editReply({ content: null, embeds: [embed] });
+    }
 };

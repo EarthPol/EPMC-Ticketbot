@@ -18,6 +18,9 @@ module.exports = {
         "1250263761076359201",
         "1246678992040497223"
     ],
+    abuseSupportRoles: [
+        "1246677667047149658"
+    ],
     ticketsOpenCategory: "1246676917697122374",
     ticketsCloseCategory: "1257548930481258616",
     ticketsTranscripts: "1246679219589877771"

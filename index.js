@@ -1,52 +1,57 @@
-const { Client, Collection, Intents } = require('discord.js');
-const handler = require("./handler/index");
+// index.js
+require('dotenv').config(); // load .env first
+
+const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js');
+const handler = require('./handler/index');
 
 const client = new Client({
     intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MEMBERS,
-        Intents.FLAGS.GUILD_BANS,
-        Intents.FLAGS.GUILD_INTEGRATIONS,
-        Intents.FLAGS.GUILD_WEBHOOKS,
-        Intents.FLAGS.GUILD_INVITES,
-        Intents.FLAGS.GUILD_VOICE_STATES,
-        Intents.FLAGS.GUILD_PRESENCES,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-        Intents.FLAGS.GUILD_MESSAGE_TYPING,
-        Intents.FLAGS.DIRECT_MESSAGES,
-        Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
-        Intents.FLAGS.DIRECT_MESSAGE_TYPING,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildBans,
+        GatewayIntentBits.GuildIntegrations,
+        GatewayIntentBits.GuildWebhooks,
+        GatewayIntentBits.GuildInvites,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildPresences,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildMessageTyping,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.DirectMessageReactions,
+        GatewayIntentBits.DirectMessageTyping,
+    ],
+    partials: [
+        Partials.Channel,   // for DMs
+        Partials.Message,   // if you ever need messageReaction/client.message
+        Partials.Reaction,  // same for reactions
     ],
 });
 
-const Discord = require('discord.js');
+// allow `send-panel.js` & other modules to use Discord constructors
+client.discord = require('discord.js');
 
-// Call .env file to get Token
-require('dotenv').config()
-
-module.exports = client;
-
-// Global Variables
-client.discord = Discord;
+// collections for commands + slash commands
 client.commands = new Collection();
-client.slash = new Collection();
-client.config = require('./config')
+client.slash    = new Collection();
 
-// Records commands and events
+// your config
+client.config = require('./config.js');
+
+// load everything
 handler.loadEvents(client);
 handler.loadCommands(client);
 handler.loadSlashCommands(client);
 
-// Error Handling
-
-process.on("uncaughtException", (err) => {
-    console.log("Uncaught Exception: " + err);
+// global error handlers
+process.on('uncaughtException', err => {
+    console.error('Uncaught Exception:', err);
 });
-  
-process.on("unhandledRejection", (reason, promise) => {
-    console.log("[FATAL] Possibly Unhandled Rejection at: Promise ", promise, " reason: ", reason.message);
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Possibly Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Login Discord Bot Token
+// finally, log in
 client.login(process.env.TOKEN);
+
+module.exports = client;
