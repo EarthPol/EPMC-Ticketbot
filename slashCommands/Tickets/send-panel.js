@@ -34,7 +34,7 @@ module.exports = {
                 .setCustomId('report_staff')
                 .setLabel('Report Staff Abuse')
                 .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder
+            new ButtonBuilder()
                 .setCustomId('item_restoration')
                 .setLabel('Restore Items')
                 .setStyle(ButtonStyle.Secondary)
