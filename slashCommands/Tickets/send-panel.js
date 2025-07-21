@@ -1,59 +1,48 @@
-// slashCommands/send-panel.js
-const {
-    SlashCommandBuilder,
-    PermissionFlagsBits,
-    ChannelType
-} = require('discord.js');
+// slashCommands/Tickets/send-panel.js
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('send-panel')
-        .setDescription('Send ticket panel to specific channel!')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addChannelOption(option =>
-            option
-                .setName('channel')
-                .setDescription('Text channel to post the ticket panel in')
-                .addChannelTypes(ChannelType.GuildText)
+        .setDescription('Send the ticket creation panel to a channel')
+        .addChannelOption(opt =>
+            opt.setName('channel')
+                .setDescription('Text channel to send the ticket panel to')
+                .addChannelTypes(0) // 0 is GUILD_TEXT in v14
                 .setRequired(true)
         ),
-
-    async execute(client, interaction) {
+    category: 'Tickets',
+    userPerms: ['Administrator'],
+    ownerOnly: false,
+    async run(client, interaction) {
         const channel = interaction.options.getChannel('channel');
 
-        const { MessageActionRow, MessageButton, MessageEmbed } = require('discord.js');
-        const row = new MessageActionRow().addComponents(
-            new MessageButton()
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
                 .setCustomId('general_ticket')
                 .setLabel('General Ticket')
-                .setStyle('SECONDARY'),
-            new MessageButton()
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId('report_player')
                 .setLabel('Report a Player')
-                .setStyle('SECONDARY'),
-            new MessageButton()
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId('bug_report')
-                .setLabel('Bug Reports')
-                .setStyle('SECONDARY'),
-            new MessageButton()
+                .setLabel('Bug Report')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId('report_staff')
                 .setLabel('Report Staff Abuse')
-                .setStyle('SECONDARY'),
+                .setStyle(ButtonStyle.Secondary)
         );
 
-        const embed = new MessageEmbed()
-            .setTitle('Create ticket')
-            .setDescription('Click one of the buttons below to open a ticket')
+        const embed = new EmbedBuilder()
+            .setTitle('🎫 Create a Ticket')
+            .setDescription('Select the type of ticket you’d like to open:')
             .setColor(client.config.embedColor)
-            .setFooter({
-                text: client.config.embedfooterText,
-                iconURL: client.user.displayAvatarURL()
-            });
+            .setFooter({ text: client.config.embedfooterText, iconURL: client.user.displayAvatarURL() });
 
+        await interaction.reply({ content: `Panel sent to ${channel}`, ephemeral: true });
         await channel.send({ embeds: [embed], components: [row] });
-        return interaction.reply({
-            content: `✅ Ticket panel sent to ${channel}`,
-            ephemeral: true
-        });
     }
 };

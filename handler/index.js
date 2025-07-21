@@ -1,111 +1,92 @@
 // handler/index.js
-const fs = require("fs");
-const chalk = require("chalk");
-const { Collection } = require("discord.js");
+const fs = require('fs');
+const path = require('path');
+const chalk = require('chalk');
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v10');
 
 /**
- * Load Events
+ * Load Events from /events/*
  */
-const loadEvents = async function (client) {
-    const eventFolders = fs.readdirSync("./events");
+async function loadEvents(client) {
+    const eventFolders = fs.readdirSync(path.join(__dirname, '..', 'events'));
     for (const folder of eventFolders) {
-        const eventFiles = fs
-            .readdirSync(`./events/${folder}`)
-            .filter((file) => file.endsWith(".js"));
-
-        for (const file of eventFiles) {
-            const event = require(`../events/${folder}/${file}`);
-            if (event.name) {
-                console.log(chalk.bgBlueBright.black(` ✔️ => Event ${file} is being loaded `));
-            } else {
-                console.log(chalk.bgRedBright.black(` ❌ => Event ${file} missing a name property`));
+        const files = fs
+            .readdirSync(path.join(__dirname, '..', 'events', folder))
+            .filter(f => f.endsWith('.js'));
+        for (const file of files) {
+            // skip the createTicket helper (not an event)
+            if (folder === 'tickets' && file === 'createTicket.js') continue;
+            const event = require(path.join(__dirname, '..', 'events', folder, file));
+            if (!event.name || typeof event.execute !== 'function') {
+                console.log(chalk.bgRedBright.black(` ❌ Event ${file} missing name or execute()`));
                 continue;
             }
-
-            if (event.once) {
-                client.once(event.name, (...args) => event.execute(...args, client));
-            } else {
-                client.on(event.name, (...args) => event.execute(...args, client));
-            }
+            console.log(chalk.bgBlueBright.black(` ✔️ => Event ${file} loaded`));
+            if (event.once) client.once(event.name, (...args) => event.execute(...args, client));
+            else client.on(event.name, (...args) => event.execute(...args, client));
         }
     }
-};
+}
 
 /**
- * Load Prefix Commands
+ * Load Prefix Commands from /commands/*
  */
-const loadCommands = async function (client) {
-    // ensure these collections exist
-    if (!client.commands) client.commands = new Collection();
-    if (!client.aliases)  client.aliases  = new Collection();
-
-    const commandFolders = fs.readdirSync("./commands");
-    for (const folder of commandFolders) {
-        const commandFiles = fs
-            .readdirSync(`./commands/${folder}`)
-            .filter((file) => file.endsWith(".js"));
-
-        for (const file of commandFiles) {
-            const command = require(`../commands/${folder}/${file}`);
-
-            if (command.name) {
-                client.commands.set(command.name, command);
-                console.log(chalk.bgBlueBright.black(` ✔️ => Prefix Command ${file} is being loaded `));
-            } else {
-                console.log(chalk.bgRedBright.black(` ❌ => Prefix Command ${file} missing a name property`));
+async function loadCommands(client) {
+    client.aliases = new Map();
+    const cmdFolders = fs.readdirSync(path.join(__dirname, '..', 'commands'));
+    for (const folder of cmdFolders) {
+        const files = fs
+            .readdirSync(path.join(__dirname, '..', 'commands', folder))
+            .filter(f => f.endsWith('.js'));
+        for (const file of files) {
+            const cmd = require(path.join(__dirname, '..', 'commands', folder, file));
+            if (!cmd.name || typeof cmd.run !== 'function') {
+                console.log(chalk.bgRedBright.black(` ❌ Prefix Command ${file} missing name or run()`));
                 continue;
             }
-
-            // only if aliases is an actual array
-            if (command.aliases && Array.isArray(command.aliases)) {
-                for (const alias of command.aliases) {
-                    client.aliases.set(alias, command.name);
-                }
-            }
+            client.commands.set(cmd.name, cmd);
+            console.log(chalk.bgBlueBright.black(` ✔️ => Prefix Command ${file} loaded`));
+            if (Array.isArray(cmd.aliases)) cmd.aliases.forEach(a => client.aliases.set(a, cmd.name));
         }
     }
-};
+}
 
 /**
- * Load SlashCommands
+ * Load & register Slash Commands from /slashCommands/*
  */
-const loadSlashCommands = async function (client) {
-    let slashData = [];
-
-    const commandFolders = fs.readdirSync("./slashCommands");
-    for (const folder of commandFolders) {
-        const commandFiles = fs
-            .readdirSync(`./slashCommands/${folder}`)
-            .filter((file) => file.endsWith(".js"));
-
-        for (const file of commandFiles) {
-            const command = require(`../slashCommands/${folder}/${file}`);
-
-            // v14: we expect a `data` property from SlashCommandBuilder
-            if (command.data && typeof command.data.name === "string") {
-                client.slash.set(command.data.name, command);
-                slashData.push(command.data.toJSON());
-                console.log(chalk.bgBlueBright.black(` ✔️ => SlashCommand ${file} is being loaded `));
-            } else {
-                console.log(chalk.bgRedBright.black(` ❌ => SlashCommand ${file} missing a data.name`));
+async function loadSlashCommands(client) {
+    const slashPayload = [];
+    const slashFolders = fs.readdirSync(path.join(__dirname, '..', 'slashCommands'));
+    for (const folder of slashFolders) {
+        const files = fs
+            .readdirSync(path.join(__dirname, '..', 'slashCommands', folder))
+            .filter(f => f.endsWith('.js'));
+        for (const file of files) {
+            const cmd = require(path.join(__dirname, '..', 'slashCommands', folder, file));
+            if (!cmd.data?.name || typeof cmd.run !== 'function') {
+                console.log(chalk.bgRedBright.black(` ❌ SlashCommand ${file} missing data.name or run()`));
                 continue;
             }
+            client.slash.set(cmd.data.name, cmd);
+            slashPayload.push(cmd.data.toJSON());
+            console.log(chalk.bgBlueBright.black(` ✔️ => SlashCommand ${file} loaded`));
         }
     }
 
-    client.on("ready", async () => {
-        const guild = client.guilds.cache.get(client.config.guildID);
-        if (!guild) {
-            console.warn("⚠️  Could not find guild to register slash commands");
-            return;
+    // register after ready event
+    client.once('ready', async () => {
+        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+        try {
+            await rest.put(
+                Routes.applicationGuildCommands(client.user.id, client.config.guildID),
+                { body: slashPayload }
+            );
+            console.log(chalk.bgGreenBright.black(` ✅ Registered ${slashPayload.length} slash commands`));
+        } catch (err) {
+            console.error(err);
         }
-        await guild.commands.set(slashData);
-        console.log(chalk.bgGreenBright.black(` 🌐 Registered ${slashData.length} slash commands`));
     });
-};
+}
 
-module.exports = {
-    loadEvents,
-    loadCommands,
-    loadSlashCommands
-};
+module.exports = { loadEvents, loadCommands, loadSlashCommands };
