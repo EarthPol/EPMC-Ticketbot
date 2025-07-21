@@ -222,5 +222,13 @@ module.exports = async function createTicket(interaction, opts) {
             )
             .setColor(embedColor);
         await createdChannel.send({ embeds: [answersEmbed] });
+    } else if (opts.category === 'item_restoration') {
+        const restoreEmbed = new EmbedBuilder()
+            .setTitle('🛠️ Item Restoration Request')
+            .setDescription(opts.description)
+            .addFields({ name: 'Chest Coordinates', value: opts.coords })
+            .setColor(embedColor);
+
+        await createdChannel.send({ embeds: [restoreEmbed] });
     }
 };

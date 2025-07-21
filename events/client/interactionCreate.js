@@ -88,6 +88,30 @@ module.exports = {
                         ephemeral: true
                     });
                 }
+
+                case 'item_restoration': {
+                    const modal = new ModalBuilder()
+                        .setCustomId('modal_restore')
+                        .setTitle('Item Restoration Request');
+
+                    const lostDesc = new TextInputBuilder()
+                        .setCustomId('restore_items_desc')
+                        .setLabel('Describe what you lost:')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(true);
+
+                    const coordsIn = new TextInputBuilder()
+                        .setCustomId('restore_items_coords')
+                        .setLabel('Chest Coordinates (x, y, z)')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true);
+
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(lostDesc),
+                        new ActionRowBuilder().addComponents(coordsIn)
+                    );
+                    return interaction.showModal(modal);
+                }
             }
         }
 
@@ -106,6 +130,15 @@ module.exports = {
                     const staff = interaction.fields.getTextInputValue('staff_name');
                     const desc2 = interaction.fields.getTextInputValue('staff_desc');
                     return createTicket(interaction, { category: 'staff_abuse', target: staff, description: desc2 });
+                }
+                case 'modal_restore': {
+                    const description = interaction.fields.getTextInputValue('restore_items_desc');
+                    const coords      = interaction.fields.getTextInputValue('restore_items_coords');
+                    return createTicket(interaction, {
+                        category:    'item_restoration',
+                        description,              // what they lost
+                        coords                   // where to put it
+                    });
                 }
             }
         }
